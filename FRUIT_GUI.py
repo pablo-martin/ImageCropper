@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-ROOT = os.path.abspath('') + '/'
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
 getPics = lambda x : glob.glob(ROOT + 'cropped/' + x + '*')
 getCachedPics = lambda x : glob.glob(ROOT + 'cropped/proccesed_img50/' + x + '*')

@@ -1,7 +1,7 @@
 import os
 import glob
 import pygame, sys
-from pygame.locals import K_a, K_s, K_w, K_d, K_LEFTBRACKET, K_RIGHTBRACKET, K_RIGHT, K_LEFT, QUIT
+from pygame.locals import K_RIGHT, K_LEFT, QUIT
 from PIL import Image
 
 class ImageCropper():
@@ -10,9 +10,11 @@ class ImageCropper():
                        outfile_folder = './cropped',
                        outfile_prefix = '',
                        outfile_extension = 'png',
-                       offset = 100,
                        resolution = 300):
-
+        '''
+        Cropper object needs information on input and output folder and certain
+        names for knowing which files to select and process.
+        '''
         #general properties
         self.topleft = None
         self.bottomright = None
@@ -20,58 +22,28 @@ class ImageCropper():
         self.scale = 1
         self.pos = [0,0]
         self.BG_COLOR = (0,0,0)
-        self.offset = offset
         self.resolution = resolution
 
-        #Getting input images appropriately
-        self.infile_folder = infile_folder
-        self.infile_prefix = infile_prefix
         #create list of files matching prefix in folder, and sort it
-        self.infiles = [os.path.basename(w) \
-                   for w in glob.glob(os.path.join(infile_folder, infile_prefix) + '*.png')]
+        self.infiles = [w for w in glob.glob(os.path.join(infile_folder, infile_prefix) + '*.png')]
         self.infiles.sort()
+        #should never happen but you never know
         if not self.infiles:
             print("No files found in input folder with that input prefix!")
             return
-        else:
-            print("We found %i files: \n" %len(self.infiles))
         self.file_idx = 0
-        self.input_loc = os.path.join(self.infile_folder, self.infiles[self.file_idx])
-
+        self.input_loc = lambda : self.infiles[self.file_idx]
 
         #get files begining with output prefix to make sure we don't overwrite files
-        self.outfile_folder = outfile_folder
-        self.outfile_prefix = outfile_prefix
-        self.outfile_extension = outfile_extension
-
-        outfiles = [w for w in glob.glob(os.path.join(outfile_folder, outfile_prefix) + '*') \
-                    if os.path.isfile(w)]
-        outfiles.sort()
-        self.out_idx = len(outfiles)
-
-        self.outfilename = lambda x : self.outfile_prefix + str(x).zfill(3) + '.' + self.outfile_extension
-        self.output_loc = os.path.join(outfile_folder, self.outfilename(self.out_idx))
+        self.out_idx = len([w for w in glob.glob(os.path.join(outfile_folder, outfile_prefix) + '*') if os.path.isfile(w)])
+        self.output_loc = lambda : os.path.join(outfile_folder, outfile_prefix + str(self.out_idx).zfill(3) + '.' + outfile_extension)
 
         #initialize graphics window / render it
-        self.px = pygame.image.load(self.input_loc)
+        self.px = pygame.image.load(self.input_loc())
         self.screen = pygame.display.set_mode([self.px.get_rect().width,\
                                                self.px.get_rect().height])
         self.screen.blit(self.px, self.px.get_rect())
         pygame.display.flip()
-
-
-    def move(self):
-        '''
-        Moves image by self.pos
-        '''
-        x,y = self.pos
-        rect = self.px.get_rect()
-        self.screen.fill(self.BG_COLOR)
-        self.px = pygame.transform.scale(self.px, [int(rect.width/self.scale),\
-                                                   int(rect.height/self.scale)])
-        self.screen.blit(self.px, (rect[0] - x, rect[1] - y))
-        pygame.display.flip()
-        return
 
     def displayRect(self):
         '''
@@ -124,6 +96,10 @@ class ImageCropper():
 
 
     def mainloop(self):
+        '''
+        Infinite loop that processes events as they come. Events are mouse
+        clicks or button presses.
+        '''
         pygame.init()
         runForever = 1
         while runForever:
@@ -141,37 +117,14 @@ class ImageCropper():
                         self.bottomright = [(val+self.pos[i]) * self.scale for i, val in enumerate(event.pos)]
 
 
-                if event.type == pygame.KEYDOWN and event.key == K_a:
-                    self.pos = [self.pos[0] - self.offset, self.pos[1]]
-                    self.move()
-                if event.type == pygame.KEYDOWN and event.key == K_d:
-                    self.pos = [self.pos[0] + self.offset, self.pos[1]]
-                    self.move()
-                if event.type == pygame.KEYDOWN and event.key == K_w:
-                    self.pos = [self.pos[0], self.pos[1] - self.offset]
-                    self.move()
-                if event.type == pygame.KEYDOWN and event.key == K_s:
-                    self.pos = [self.pos[0], self.pos[1] + self.offset]
-                    self.move()
-
-
-                if event.type == pygame.KEYDOWN and event.key == K_RIGHTBRACKET:
-                    self.scale /= 1.25
-                    self.move()
-                if event.type == pygame.KEYDOWN and event.key == K_LEFTBRACKET:
-                    self.scale *= 1.25
-                    self.move()
-
                 if event.type == pygame.KEYDOWN and event.key == K_RIGHT:
                     self.file_idx += 1
                     try:
-                        infile = self.infiles[self.file_idx]
+                        self.px = pygame.image.load(self.input_loc())
                     except IndexError:
                         self.file_idx -= 1
                         print("End of album")
                     else:
-                        self.input_loc = os.path.join(self.infile_folder, infile)
-                        self.px = pygame.image.load(self.input_loc)
                         pos = [0,0]
                         self.topleft = self.bottomright = self.prior = None
                         self.prior = self.displayRect()
@@ -181,9 +134,7 @@ class ImageCropper():
                         print("This is the begining of the album, cannot go back a page.")
                     else:
                         self.file_idx -= 1
-                        infile = self.infiles[self.file_idx]
-                        self.input_loc = os.path.join(self.infile_folder,infile)
-                        self.px = pygame.image.load(self.input_loc)
+                        self.px = pygame.image.load(self.input_loc())
                         pos = [0,0]
                         self.topleft = self.bottomright = self.prior = None
                         self.prior = self.displayRect()
@@ -203,13 +154,12 @@ class ImageCropper():
                         lower, upper = upper, lower
 
                     #actual cropping happens here
-                    im = Image.open(self.input_loc)
+                    im = Image.open(self.input_loc())
                     im = im.crop((int(left), int(upper), int(right), int(lower)))
                     #if coordinates were valid we save the image
                     if im.getbbox() != None:
-                        im.save(self.output_loc, dpi = (self.resolution, self.resolution))
+                        im.save(self.output_loc(), dpi = (self.resolution, self.resolution))
                         self.out_idx += 1
-                        self.output_loc = os.path.join(self.outfile_folder, self.outfilename(self.out_idx))
                         self.topleft = self.bottomright = self.prior = None
                         self.prior = self.displayRect()
                         print("saved")
@@ -229,7 +179,6 @@ if __name__ == '__main__':
                        outfile_folder = './cropped/test/',
                        outfile_prefix = 'appletest',
                        outfile_extension = 'png',
-                       offset = 100,
                        resolution = 300)
 
     IC.mainloop()
