@@ -1,12 +1,10 @@
 import os
 import sys
 import glob
-import time
 import random
 import argparse
 import numpy as np
 import tkinter as tk
-from skimage.transform import rescale
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -15,9 +13,7 @@ import matplotlib.image as mpimg
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-
-getPics = lambda x : glob.glob(ROOT + 'cropped/' + x + '*')
-getCachedPics = lambda x : glob.glob(ROOT + 'cropped/proccesed_img50/' + x + '*')
+getCachedPics = lambda x : glob.glob(os.path.join(ROOT, 'cropped/proccesed_img50/' + x + '*'))
 
 class App:
     def __init__(self, window,
@@ -54,16 +50,38 @@ class App:
         '''
         if self.totalTrials <= 0 or self.totalTrials > 40:
             print('Number of trials not in acceptable range, EXITING')
-            return
+            sys.exit(0)
         if self.categoryType not in self.Cats.keys():
             print('categoryType entered not valid, EXITING')
-            return
+            print('catgories that are allowed:')
+            print('\tfruit')
+            print('\tfruitsVegNoConflict')
+            print('\tfruitsVegConflict')
+            print('\tgestures')
+            sys.exit(0)
+        else:
+            for element in self.Cats[self.categoryType]:
+                items = getCachedPics(element)
+                if len(items) == 0:
+                    print('Element %s has no pictures, EXITING' %element)
+                    sys.exit(0)
+                else:
+                    print("We have %i pictures of %s" %(len(items), element))
+
         if self.trialPresentation not in ['continuous','single300','triple300']:
             print('trialPresentation entered not valid, EXITING')
-            return
+            print('Allowed modes are:')
+            print('\tcontinuous')
+            print('\tsingle300')
+            print('\ttriple300')
+            sys.exit(0)
         if self.baseItem not in self.Cats[self.categoryType]:
             print('base item entered should be in the category, EXITING')
-            return
+            print('you specified %s as base item' %self.baseItem)
+            print('Items in current category are:')
+            for s in self.Cats[self.categoryType]:
+                print('\t%s' %s)
+            sys.exit(0)
 
         '''
         Generates trials in advanced. Half of the trials are of the target base
@@ -104,30 +122,25 @@ class App:
         #START SESSION!
         self.window.after(1000, self.next_trial)
 
-    def downsample_image(self, img, pixelWidth = 50):
-        img = img[:min(img.shape), :min(img.shape)]
-        return rescale(img, pixelWidth / img.shape[0], anti_aliasing=False)
-
-    def rgb2gray(self, img):
-        return np.dot(img[:,:,:3], [0.2989, 0.5870, 0.1140])
 
     def load_image(self, img_path):
         return mpimg.imread(img_path)
 
-    def get_picture(self, fruit, notAllowed = []):
-        specificPic = random.choice(getPics(fruit))
-        while specificPic in notAllowed:
-            specificPic = random.choice(getPics(fruit))
-        img = self.load_image(specificPic)
-        img = self.rgb2gray(img)
-        notAllowed.append(specificPic)
-        return downsample_image(img)
-
     def get_picture_cached(self, fruit, notAllowed = []):
+        '''
+        It picks a picture at random of the given category, if it has not been
+        shown before. If there are a lot of trials it could get stuck in an
+        infinite loop because all pictures have been shown. That's why it will
+        only look 50 times, and quit the program if it exceeds that.
+        '''
+        cnt = 0
         specificPic = random.choice(getCachedPics(fruit))
-        while specificPic in notAllowed:
+        while specificPic in notAllowed and cnt < 50:
             specificPic = random.choice(getCachedPics(fruit))
+            cnt += 1
         notAllowed.append(specificPic)
+        #we print the picture in case it's not good, it gives us the name in the
+        #terminal and that way we can manually delete it.
         print(specificPic)
         return self.load_image(specificPic)
 
@@ -176,6 +189,15 @@ class App:
 
 
 if __name__ == '__main__':
+    print('''
+    This GUI draws pictures from ./cropped/proccesed_img50/.
+    If there are no pictures there, the program will not work!
+    Images should be processed to be grayscale and 50x50.
+    ''')
+    if not os.listdir(os.path.join(ROOT, 'cropped/proccesed_img50')):
+        print('There are no pictures in ./cropped/procces   ed_img50')
+        sys.exit(0)
+
     #command line argument parser
     parser = argparse.ArgumentParser(description='Image Recognition for Humans.')
     parser.add_argument('--trials', type=int, default = 10,
@@ -187,6 +209,7 @@ if __name__ == '__main__':
     parser.add_argument('--baseItem', type=str, default = 'apple',
                         help = 'The base category to compare against')
     args = parser.parse_args()
+
 
     root = tk.Tk()
     app = App(root, totalTrials = args.trials,
