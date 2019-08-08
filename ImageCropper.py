@@ -1,6 +1,6 @@
 import os
 import glob
-import pygame, sys
+import pygame
 from pygame.locals import K_RIGHT, K_LEFT, QUIT
 from PIL import Image
 

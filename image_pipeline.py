@@ -3,11 +3,7 @@ import sys
 import glob
 import argparse
 from shutil import copyfile, rmtree
-import numpy as np
 from PIL import Image
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-from skimage.transform import rescale
 from ImageCropper import ImageCropper
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -29,29 +25,19 @@ def convert_jpg_to_png(folder, outputDir = os.path.join(ROOT, 'tmp'), deleteOrig
     return
 
 
-def rename_pics(dire, substr, extension):
-    for i,image_file in enumerate(os.listdir(dire)):
-        os.rename(os.path.join(dire, image_file), os.path.join(dire, substr + str(i) + extension))
-
 '''
 Functions to turn image to grayscale and downsample
 '''
-def load_image(img_path):
-    return mpimg.imread(img_path)
-
-def rgb2gray(img):
-    return np.dot(img[:,:,:3], [0.2989, 0.5870, 0.1140])
-
-def downsample_image(img, pixelWidth = 50):
-    img = img[:min(img.shape), :min(img.shape)]
-    return rescale(img, pixelWidth / img.shape[0], anti_aliasing=False, multichannel=False)
 
 def create_50x50(inputDir, pixelWidth = 50):
     for image_file in glob.glob(inputDir + '/*png'):
-        im = load_image(image_file)
-        im = rgb2gray(im)
-        im = downsample_image(im, pixelWidth = pixelWidth)
-        plt.imsave(image_file, im, cmap=plt.get_cmap('gray'))
+        im = Image.open(image_file)
+        #turn to grayscale
+        im = im.convert('LA')
+        #downsample
+        im = im.resize((pixelWidth, pixelWidth))
+        #save image
+        im.save(image_file)
         print('Finished processing %s.' %(os.path.basename(image_file)))
     return
 
@@ -60,26 +46,18 @@ def create_50x50(inputDir, pixelWidth = 50):
 Functions to add dark padding to make 120x120. Only works with pictures that are
 50x50
 '''
-
-def add_dark_padding(specificPic, outputDir = 'cropped/proccesed_imgPad/'):
-    img = load_image(specificPic)
-    new_img = np.zeros((120,120))
-    if (img.shape[0] == 50 and img.shape[1] == 50):
-        new_img[35:85,35:85] = img[:,:,0]
-        plt.imsave(outputDir + os.path.basename(specificPic), new_img, cmap=plt.get_cmap('gray'))
-        return
-    else:
-        print("input image is not 50x50. Did not convert.")
-        return
-
 def create_120x120_darkpad(inputDir, outputDir = ROOT + '/cropped/proccesed_imgPad/'):
     assert(os.path.isdir(outputDir))
     for image_file in glob.glob(inputDir + '/*png'):
-        add_dark_padding(image_file, outputDir = outputDir)
-        print('Adding dark padding to %s.' %(os.path.basename(image_file)))
+        im = Image.open(image_file)
+        back = Image.new(size = (120,120), mode='RGB')
+        if im.size == (50,50):
+            back.paste(im, (35,35))
+            back.save(outputDir + os.path.basename(image_file))
+            print('Adding dark padding to %s.' %(os.path.basename(image_file)))
+        else:
+            print("input image %s is not 50x50. Skipping." %(os.path.basename(image_file)))
     return
-
-
 
 
 if __name__ == '__main__':
